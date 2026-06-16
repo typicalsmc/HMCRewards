@@ -4,10 +4,13 @@ import com.hibiscusmc.hmcrewards.data.serialize.DnCodec;
 import com.hibiscusmc.hmcrewards.data.serialize.DnReader;
 import com.hibiscusmc.hmcrewards.data.serialize.DnType;
 import com.hibiscusmc.hmcrewards.data.serialize.DnWriter;
+import com.hibiscusmc.hmcrewards.reward.ItemRewardProvider;
 import com.hibiscusmc.hmcrewards.reward.Reward;
+import com.hibiscusmc.hmcrewards.reward.RewardProvider;
 import com.hibiscusmc.hmcrewards.reward.RewardProviderRegistry;
 import com.hibiscusmc.hmcrewards.user.User;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +55,10 @@ public final class UserCodec implements DnCodec<User> {
                         // todo: warn if list is empty (invalid reference)
                         rewards.addAll(rewardProviderRegistry.findByReference(ref));
                     } else if (readType == DnType.START_OBJECT) {
-                        // TODO: do something!
+                        final Reward reward = decodeRewardObject(reader);
+                        if (reward != null) {
+                            rewards.add(reward);
+                        }
                     } else {
                         reader.skipValue();
                     }
@@ -85,10 +91,43 @@ public final class UserCodec implements DnCodec<User> {
             if (ref != null) {
                 writer.writeStringValue(ref);
             } else {
-                throw new IllegalStateException("Reward has no reference.");
+                encodeRewardObject(writer, reward);
             }
         }
         writer.writeArrayEnd();
         writer.writeObjectEnd();
+    }
+
+    private void encodeRewardObject(final @NotNull DnWriter writer, final @NotNull Reward reward) {
+        final RewardProvider<?> provider = rewardProviderRegistry.provider(reward.type());
+        if (provider == null) {
+            throw new IllegalStateException("Reward provider not found: " + reward.type());
+        }
+
+        final DnCodec<Reward> codec = rewardCodec(provider, reward);
+        if (codec == null) {
+            throw new IllegalStateException("Reward type '" + reward.type() + "' does not support non-reference persistence.");
+        }
+
+        codec.encode(writer, reward);
+    }
+
+    private Reward decodeRewardObject(final @NotNull DnReader reader) {
+        final RewardProvider<?> provider = rewardProviderRegistry.provider(ItemRewardProvider.ID);
+        if (!(provider instanceof ItemRewardProvider itemRewardProvider)) {
+            reader.skipValue();
+            return null;
+        }
+
+        return itemRewardProvider.decode(reader);
+    }
+
+    @SuppressWarnings("unchecked")
+    private @Nullable DnCodec<Reward> rewardCodec(final @NotNull RewardProvider<?> provider, final @NotNull Reward reward) {
+        if (provider instanceof ItemRewardProvider codec && codec.type().isInstance(reward)) {
+            return (DnCodec<Reward>) (DnCodec<?>) codec;
+        }
+
+        return null;
     }
 }

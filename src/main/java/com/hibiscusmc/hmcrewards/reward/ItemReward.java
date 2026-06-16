@@ -11,7 +11,7 @@ public final class ItemReward implements Reward {
     private final ItemDefinition item;
 
     public ItemReward(final @Nullable String reference, final @NotNull ItemDefinition item) {
-        this.reference = requireNonNull(reference, "reference");
+        this.reference = reference;
         this.item = requireNonNull(item, "item");
     }
 

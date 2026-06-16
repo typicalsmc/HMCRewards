@@ -8,6 +8,8 @@ import com.hibiscusmc.hmcrewards.item.ItemMatcher;
 import com.hibiscusmc.hmcrewards.menu.RewardQueueMenu;
 import com.hibiscusmc.hmcrewards.reward.Reward;
 import com.hibiscusmc.hmcrewards.reward.RewardProvider;
+import com.hibiscusmc.hmcrewards.reward.RewardProviderRegistry;
+import com.hibiscusmc.hmcrewards.reward.RewardStacker;
 import com.hibiscusmc.hmcrewards.user.User;
 import com.hibiscusmc.hmcrewards.user.UserManager;
 import com.hibiscusmc.hmcrewards.user.data.UserDatastore;
@@ -45,6 +47,7 @@ public final class HMCRewardsCommand implements CommandClass {
     @Inject private ConfigurationBinder configurationBinder;
     @Inject private RewardQueueMenu rewardQueueMenu;
     @Inject private ItemMatcher itemMatcher;
+    @Inject private RewardProviderRegistry rewardProviderRegistry;
     @Inject @Named("config.yml") private YamlFileConfiguration config;
 
     @Command(names = "queue", permission = "hmcrewards.command.queue")
@@ -75,7 +78,7 @@ public final class HMCRewardsCommand implements CommandClass {
                         translationManager.send(sender, "user.not_found", Placeholder.component("arg", Component.text(targetName)));
                         return;
                     }
-                    addStacking(user.rewards(), rewards, provider);
+                    RewardStacker.addStacking(user.rewards(), rewards, rewardProviderRegistry);
                     userDatastore.save(user);
                     translationManager.send(sender, "reward.queued", Placeholder.component("arg", Component.text(targetName)));
                 });
@@ -131,7 +134,7 @@ public final class HMCRewardsCommand implements CommandClass {
                                 Placeholder.component("reward_display_name", rewardDisplayName)), Component.empty());
             }
 
-            addStacking(user.rewards(), rewardsToQueue, provider);
+            RewardStacker.addStacking(user.rewards(), rewardsToQueue, rewardProviderRegistry);
             userManager.saveAsync(user);
         }
 
@@ -141,32 +144,6 @@ public final class HMCRewardsCommand implements CommandClass {
         } else {
             translationManager.send(sender, "reward.queued_multiple",
                     Placeholder.component("players", Component.text(targets.size())));
-        }
-    }
-
-    private void addStacking(final @NotNull List<Reward> rewards, final @NotNull List<Reward> additions, final @NotNull RewardProvider provider) {
-        for (final var addition : additions) {
-            boolean stacked = false;
-            for (int i = 0; i < rewards.size(); i++) {
-                final var existing = rewards.get(i);
-
-                if (!existing.type().equals(provider.id())) {
-                    // Can't be stacked, different types!
-                    continue;
-                }
-
-
-                final var combined = provider.stack(existing, addition);
-                if (combined != null) {
-                    rewards.set(i, combined);
-                    stacked = true;
-                    break;
-                }
-            }
-
-            if (!stacked) {
-                rewards.add(addition);
-            }
         }
     }
 
