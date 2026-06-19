@@ -17,6 +17,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.hibiscusmc.hmcrewards.hook.zmenu.ZMenuHook;
 import team.unnamed.inject.Inject;
 
 import java.util.ArrayList;
@@ -27,7 +28,8 @@ import java.util.Set;
 public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnCodec<ItemReward> {
     public static final String ID = "item";
 
-        @Inject private ItemMatcher itemMatcher;
+    @Inject private ItemMatcher itemMatcher;
+    @Inject private ZMenuHook zMenuHook;
 
     @Override
     public @NotNull String id() {
@@ -53,6 +55,11 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
 
     @Override
     public @NotNull GiveResult give(final @NotNull Player player, final @NotNull ItemReward reward) {
+        if (zMenuHook.isInClearInventory(player)) {
+            zMenuHook.markBlocked(player);
+            return GiveResult.NO_SPACE_IN_INVENTORY;
+        }
+
         final Inventory inventory = player.getInventory();
 
         final int slot;

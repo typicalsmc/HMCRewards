@@ -1,6 +1,7 @@
 package com.hibiscusmc.hmcrewards.api;
 
 import com.hibiscusmc.hmcrewards.item.ItemMatcher;
+import com.hibiscusmc.hmcrewards.hook.zmenu.ZMenuHook;
 import com.hibiscusmc.hmcrewards.reward.ItemRewardProvider;
 import com.hibiscusmc.hmcrewards.reward.Reward;
 import com.hibiscusmc.hmcrewards.reward.RewardProvider;
@@ -10,6 +11,7 @@ import com.hibiscusmc.hmcrewards.user.User;
 import com.hibiscusmc.hmcrewards.user.UserManager;
 import com.hibiscusmc.hmcrewards.user.data.UserDatastore;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -21,10 +23,13 @@ import java.util.concurrent.CompletableFuture;
 import static java.util.Objects.requireNonNull;
 
 public final class HMCRewardsAPI {
+    private static HMCRewardsAPI instance;
+
     private final UserManager userManager;
     private final RewardProviderRegistry rewardProviderRegistry;
     private final UserDatastore userDatastore;
     private final ItemMatcher matcher;
+    private final ZMenuHook zMenuHook;
     private final Plugin plugin;
 
     public HMCRewardsAPI(
@@ -32,13 +37,20 @@ public final class HMCRewardsAPI {
             final @NotNull RewardProviderRegistry rewardProviderRegistry,
             final @NotNull UserDatastore userDatastore,
             final @NotNull ItemMatcher matcher,
+            final @NotNull ZMenuHook zMenuHook,
             final @NotNull Plugin plugin
     ) {
+        HMCRewardsAPI.instance = this;
         this.userManager = requireNonNull(userManager, "userManager");
         this.rewardProviderRegistry = requireNonNull(rewardProviderRegistry, "rewardProviderRegistry");
         this.userDatastore = requireNonNull(userDatastore, "userDatastore");
         this.matcher = requireNonNull(matcher, "matcher");
+        this.zMenuHook = requireNonNull(zMenuHook, "zMenuHook");
         this.plugin = requireNonNull(plugin, "plugin");
+    }
+
+    public static HMCRewardsAPI getInstance() {
+        return instance;
     }
 
     public @NotNull UserManager userManager() {
@@ -51,6 +63,28 @@ public final class HMCRewardsAPI {
 
     public @NotNull ItemMatcher matcher() {
         return matcher;
+    }
+
+    public boolean isInClearInventory(final @NotNull Player player) {
+        requireNonNull(player, "player");
+        return zMenuHook.isInClearInventory(player);
+    }
+
+    public @NotNull CompletableFuture<Void> runAfterClearInventory(
+            final @NotNull Player player,
+            final @NotNull Runnable task
+    ) {
+        return runAfterClearInventory(player, task, false);
+    }
+
+    public @NotNull CompletableFuture<Void> runAfterClearInventory(
+            final @NotNull Player player,
+            final @NotNull Runnable task,
+            final boolean closeInventory
+    ) {
+        requireNonNull(player, "player");
+        requireNonNull(task, "task");
+        return zMenuHook.runAfterClearInventory(player, task, closeInventory);
     }
 
     public @NotNull CompletableFuture<Void> giveRewards(
