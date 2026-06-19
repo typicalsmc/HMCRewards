@@ -1,7 +1,6 @@
 package com.hibiscusmc.hmcrewards.api;
 
 import com.hibiscusmc.hmcrewards.item.ItemMatcher;
-import com.hibiscusmc.hmcrewards.hook.zmenu.ZMenuHook;
 import com.hibiscusmc.hmcrewards.reward.RewardProviderRegistry;
 import com.hibiscusmc.hmcrewards.user.UserManager;
 import com.hibiscusmc.hmcrewards.user.data.UserDatastore;
@@ -17,9 +16,8 @@ public class APIModule extends AbstractModule {
             RewardProviderRegistry rewardProviderRegistry,
             UserDatastore userDatastore,
             ItemMatcher matcher,
-            ZMenuHook zMenuHook,
             Plugin plugin
     ) {
-        return new HMCRewardsAPI(userManager, rewardProviderRegistry, userDatastore, matcher, zMenuHook, plugin);
+        return new HMCRewardsAPI(userManager, rewardProviderRegistry, userDatastore, matcher, plugin);
     }
 }

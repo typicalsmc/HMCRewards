@@ -17,7 +17,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import com.hibiscusmc.hmcrewards.hook.zmenu.ZMenuHook;
 import team.unnamed.inject.Inject;
 
 import java.util.ArrayList;
@@ -29,7 +28,6 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
     public static final String ID = "item";
 
     @Inject private ItemMatcher itemMatcher;
-    @Inject private ZMenuHook zMenuHook;
 
     @Override
     public @NotNull String id() {
@@ -55,11 +53,6 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
 
     @Override
     public @NotNull GiveResult give(final @NotNull Player player, final @NotNull ItemReward reward) {
-        if (zMenuHook.isInClearInventory(player)) {
-            zMenuHook.markBlocked(player);
-            return GiveResult.NO_SPACE_IN_INVENTORY;
-        }
-
         final Inventory inventory = player.getInventory();
 
         final int slot;
@@ -118,6 +111,10 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
         final var aItem = a.item();
         final var bItem = b.item();
 
+        if (aItem.isSerialized() || bItem.isSerialized()) {
+            return null;
+        }
+
         // Different items can't be stacked
         if (!aItem.isSimilar(bItem)) {
             return null;
@@ -155,6 +152,12 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
         }
 
         writer.writeObjectStart();
+        if (value.item().serializedItemStack() != null) {
+            writer.writeStringValue("serialized-itemstack", value.item().serializedItemStack());
+            writer.writeObjectEnd();
+            return;
+        }
+
         writer.writeStringValue("material", value.item().material());
         if (value.item().name() != null) {
             writer.writeStringValue("name", value.item().name());
@@ -197,6 +200,7 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
 
         reader.readObjectStart();
         String material = null;
+        String serializedItemStack = null;
         String displayName = null;
         int amount = 1;
         final List<String> lore = new ArrayList<>();
@@ -204,6 +208,7 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
         while (reader.hasMoreValuesOrEntries()) {
             String name = reader.readName();
             switch (name) {
+                case "serialized-itemstack" -> serializedItemStack = reader.readStringValue();
                 case "material" -> material = reader.readStringValue();
                 case "name" -> displayName = reader.readStringValue();
                 case "amount" -> amount = reader.readIntValue();
@@ -216,6 +221,11 @@ public final class ItemRewardProvider implements RewardProvider<ItemReward>, DnC
                 }
                 default -> reader.skipValue();
             }
+        }
+
+        if (serializedItemStack != null) {
+            reader.readObjectEnd();
+            return new ItemReward(null, ItemDefinition.ofSerializedItemStack(serializedItemStack));
         }
 
         if (material == null) {

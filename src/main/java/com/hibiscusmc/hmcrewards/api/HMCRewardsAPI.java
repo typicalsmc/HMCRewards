@@ -1,7 +1,8 @@
 package com.hibiscusmc.hmcrewards.api;
 
 import com.hibiscusmc.hmcrewards.item.ItemMatcher;
-import com.hibiscusmc.hmcrewards.hook.zmenu.ZMenuHook;
+import com.hibiscusmc.hmcrewards.item.ItemDefinition;
+import com.hibiscusmc.hmcrewards.reward.ItemReward;
 import com.hibiscusmc.hmcrewards.reward.ItemRewardProvider;
 import com.hibiscusmc.hmcrewards.reward.Reward;
 import com.hibiscusmc.hmcrewards.reward.RewardProvider;
@@ -12,6 +13,7 @@ import com.hibiscusmc.hmcrewards.user.UserManager;
 import com.hibiscusmc.hmcrewards.user.data.UserDatastore;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -29,7 +31,6 @@ public final class HMCRewardsAPI {
     private final RewardProviderRegistry rewardProviderRegistry;
     private final UserDatastore userDatastore;
     private final ItemMatcher matcher;
-    private final ZMenuHook zMenuHook;
     private final Plugin plugin;
 
     public HMCRewardsAPI(
@@ -37,7 +38,6 @@ public final class HMCRewardsAPI {
             final @NotNull RewardProviderRegistry rewardProviderRegistry,
             final @NotNull UserDatastore userDatastore,
             final @NotNull ItemMatcher matcher,
-            final @NotNull ZMenuHook zMenuHook,
             final @NotNull Plugin plugin
     ) {
         HMCRewardsAPI.instance = this;
@@ -45,7 +45,6 @@ public final class HMCRewardsAPI {
         this.rewardProviderRegistry = requireNonNull(rewardProviderRegistry, "rewardProviderRegistry");
         this.userDatastore = requireNonNull(userDatastore, "userDatastore");
         this.matcher = requireNonNull(matcher, "matcher");
-        this.zMenuHook = requireNonNull(zMenuHook, "zMenuHook");
         this.plugin = requireNonNull(plugin, "plugin");
     }
 
@@ -65,29 +64,19 @@ public final class HMCRewardsAPI {
         return matcher;
     }
 
-    public boolean isInClearInventory(final @NotNull Player player) {
-        requireNonNull(player, "player");
-        return zMenuHook.isInClearInventory(player);
-    }
-
-    public @NotNull CompletableFuture<Void> runAfterClearInventory(
-            final @NotNull Player player,
-            final @NotNull Runnable task
-    ) {
-        return runAfterClearInventory(player, task, false);
-    }
-
-    public @NotNull CompletableFuture<Void> runAfterClearInventory(
-            final @NotNull Player player,
-            final @NotNull Runnable task,
-            final boolean closeInventory
-    ) {
-        requireNonNull(player, "player");
-        requireNonNull(task, "task");
-        return zMenuHook.runAfterClearInventory(player, task, closeInventory);
-    }
-
+    /**
+     * @deprecated use {@link #queueRewards(UUID, String, Collection)}.
+     */
+    @Deprecated(forRemoval = false)
     public @NotNull CompletableFuture<Void> giveRewards(
+            final @NotNull UUID uuid,
+            final @NotNull String name,
+            final @NotNull Collection<? extends Reward> rewards
+    ) {
+        return queueRewards(uuid, name, rewards);
+    }
+
+    public @NotNull CompletableFuture<Void> queueRewards(
             final @NotNull UUID uuid,
             final @NotNull String name,
             final @NotNull Collection<? extends Reward> rewards
@@ -110,6 +99,36 @@ public final class HMCRewardsAPI {
         final CompletableFuture<Void> future = new CompletableFuture<>();
         Bukkit.getScheduler().runTask(plugin, () -> queueOnMainThread(uuid, name, additions, future));
         return future;
+    }
+
+    public @NotNull CompletableFuture<Void> queueItemStacks(
+            final @NotNull UUID uuid,
+            final @NotNull String name,
+            final @NotNull Collection<? extends ItemStack> items
+    ) {
+        requireNonNull(uuid, "uuid");
+        requireNonNull(name, "name");
+        requireNonNull(items, "items");
+
+        final ArrayList<ItemReward> rewards = new ArrayList<>(items.size());
+        try {
+            for (final ItemStack item : items) {
+                requireNonNull(item, "item");
+                rewards.add(new ItemReward(null, ItemDefinition.ofItemStack(item)));
+            }
+        } catch (final RuntimeException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+
+        return queueRewards(uuid, name, rewards);
+    }
+
+    public @NotNull CompletableFuture<Void> queueItemStacks(
+            final @NotNull Player player,
+            final @NotNull Collection<? extends ItemStack> items
+    ) {
+        requireNonNull(player, "player");
+        return queueItemStacks(player.getUniqueId(), player.getName(), items);
     }
 
     private void queueOnMainThread(
